@@ -49,6 +49,3 @@ mvn test -Dcucumber.filter.tags="@api"
 
 Or run a specific runner class (`APIRunner`, `SmokeRunner`) directly from IntelliJ.
 
-## Notes
-
-This framework was originally built during a QA automation bootcamp, targeting a private training environment provided by the course. After that environment was decommissioned, the API suite was retargeted to the public restful-booker API — remapping authentication, endpoints, and payload shapes — to keep the tests runnable and demonstrate the framework independent of any specific backend.

@@ -7,13 +7,14 @@ import io.cucumber.java.Scenario;
 
 public class Hooks extends CommonMethods {
 
-    @Before
+    // "not @api" - skip browser launch entirely for API scenarios, they don't need one
+    @Before("not @api")
     public void preConditions() {
         openBrowserAndLaunchApplication();
     }
     // Scenario class holds the complete information of your tests execution in Cucumber framework
 
-    @After
+    @After("not @api")
     public void postConditions(Scenario scenario) {
         byte[] pic;
         if(scenario.isFailed()){

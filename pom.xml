@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>org.syntax</groupId>
-    <artifactId>CucumberBatch15</artifactId>
+    <artifactId>restful-booker-test-framework</artifactId>
     <version>1.0-SNAPSHOT</version>
 
     <properties>
@@ -21,6 +21,7 @@
             <artifactId>selenium-java</artifactId>
             <version>4.9.1</version>
         </dependency>
+
 
 
         <!-- https://mvnrepository.com/artifact/io.cucumber/cucumber-junit -->

@@ -1,0 +1,42 @@
+name: Run Tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 11
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '11'
+          cache: maven
+
+      - name: Run UI smoke suite
+        id: ui_tests
+        run: mvn -B test
+        continue-on-error: true
+
+      - name: Re-run any failed UI scenarios (handles known live-site flakiness)
+        if: steps.ui_tests.outcome == 'failure'
+        run: mvn -B test -Dtest=FailedRunner
+
+      - name: Run API suite
+        run: mvn -B test -Dtest=APIRunner
+
+      - name: Upload Cucumber HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cucumber-report
+          path: target/Cucumber.html
+          if-no-files-found: ignore

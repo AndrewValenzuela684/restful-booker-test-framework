@@ -3,6 +3,7 @@ package Utils;
 import StepDefinitions.PageInitializer;
 import org.apache.commons.io.FileUtils;
 import org.apache.log4j.xml.DOMConfigurator;
+import org.openqa.selenium.JavascriptExecutor;
 import org.openqa.selenium.OutputType;
 import org.openqa.selenium.TakesScreenshot;
 import org.openqa.selenium.WebDriver;
@@ -22,19 +23,29 @@ import java.util.Date;
 import java.util.List;
 
 public class CommonMethods extends PageInitializer {
+
     public static WebDriver driver;
 
     public static void openBrowserAndLaunchApplication() {
         ConfigReader.readProperties();
 
         String browserType = ConfigReader.getPropertyValue("browserType");
+        boolean headless = ConfigReader.getPropertyValue("Headless").equals("true");
         switch (browserType) {
             case "Chrome":
+                System.setProperty("webdriver.chrome.driver", "C:\\WebDrivers\\chromedriver.exe");
                 ChromeOptions ops = new ChromeOptions();
                 ops.addArguments("--no-sandbox");
                 ops.addArguments("--remote-allow-origins=*");
-                if(ConfigReader.getPropertyValue("Headless").equals("true")){
+                if(headless){
                     ops.addArguments(("--headless=new"));
+                    // window().maximize() is unreliable in headless mode - there's no real
+                    // screen to maximize to, so Chrome can end up with an inconsistent window
+                    // size, which throws off the scroll-into-view math for any element further
+                    // down a page than the initial viewport (verified: this caused a real
+                    // ElementClickInterceptedException clicking a room's "Book now" link,
+                    // ~1600px down the homepage). An explicit window size avoids the guesswork.
+                    ops.addArguments("--window-size=1920,1080");
                 }
 
                 driver = new ChromeDriver(ops);
@@ -54,7 +65,9 @@ public class CommonMethods extends PageInitializer {
 
         }
 
-        driver.manage().window().maximize();
+        if(!headless){
+            driver.manage().window().maximize();
+        }
         driver.get(ConfigReader.getPropertyValue("url"));
         driver.manage().timeouts().implicitlyWait(Duration.ofMillis(Constants.WAIT_TIME));
         initializePageObjects();
@@ -73,6 +86,15 @@ public class CommonMethods extends PageInitializer {
 
 
     public static void doClick(WebElement element) {
+        // Selenium's built-in "scroll into view before clicking" step isn't reliable on
+        // pages that set CSS scroll-behavior: smooth (verified present on the live homepage)
+        // - the animated scroll can still be in progress when Selenium calculates the click
+        // point, so the click lands on the wrong spot and gets intercepted by whatever
+        // content happens to be there instead. Forcing an instant scroll ourselves first,
+        // via behavior: 'instant' (which overrides the page's own smooth-scroll CSS for this
+        // call), guarantees the element is actually in place before we ever attempt to click.
+        ((JavascriptExecutor) driver).executeScript(
+                "arguments[0].scrollIntoView({block: 'center', behavior: 'instant'});", element);
         element.click();
     }
 
@@ -110,6 +132,13 @@ public class CommonMethods extends PageInitializer {
 
 
     public static byte[] takeScreenshot(String imageName) {
+        if (driver == null) {
+            // browser launch must have failed before this hook ran (e.g. ChromeDriver
+            // couldn't be located) - nothing to screenshot, and casting null would throw
+            // a NullPointerException that just masks the real error above it in the log
+            Log.warning("Skipping screenshot - driver was never initialized");
+            return null;
+        }
         // This casts the webDriver instance 'driver' to TakeScreenshot Interface
         TakesScreenshot ts = (TakesScreenshot) driver;
         byte[] picBytes = ts.getScreenshotAs(OutputType.BYTES);

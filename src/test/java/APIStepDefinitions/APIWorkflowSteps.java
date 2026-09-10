@@ -111,4 +111,50 @@ public class APIWorkflowSteps {
     public void the_status_code_of_updated_booking_is(Integer int1) {
         response.then().assertThat().statusCode(int1);
     }
+
+    //------------------------------------------------------------------------------------------
+
+    @Given("a request is prepared to delete the booking")
+    public void a_request_is_prepared_to_delete_the_booking() {
+        // delete requires auth too - same Cookie pattern as update
+        request = given().header(APIConstants.HEADER_KEY_COOKIE, "token=" + GenerateTokenSteps.token);
+    }
+
+    @Given("a request is prepared to delete the booking without authorization")
+    public void a_request_is_prepared_to_delete_the_booking_without_authorization() {
+        // deliberately NOT attaching the auth cookie - that omission is the entire point
+        // of this negative test
+        request = given();
+    }
+
+    @When("a DELETE call is made to delete the booking")
+    public void a_delete_call_is_made_to_delete_the_booking() {
+        response = request.when().delete(APIConstants.BOOKING_URI + "/" + booking_id);
+    }
+
+    @Then("the status code for deleting a booking is {int}")
+    public void the_status_code_for_deleting_a_booking_is(Integer int1) {
+        // restful-booker returns 201 here, not 200/204 - verified against the live API
+        response.then().assertThat().statusCode(int1);
+    }
+
+    // shared by both GET-and-check-status steps below, so the actual request-building
+    // logic only lives in one place
+    private void assertGetBookingStatus(int expectedStatusCode) {
+        Response getResponse = given().when().get(APIConstants.BOOKING_URI + "/" + booking_id);
+        getResponse.then().assertThat().statusCode(expectedStatusCode);
+    }
+
+    @Then("a GET call for the deleted booking returns {int}")
+    public void a_get_call_for_the_deleted_booking_returns(Integer int1) {
+        // don't just trust the delete's status code - confirm the booking is actually gone
+        assertGetBookingStatus(int1);
+    }
+
+    @Then("the booking still exists with status {int}")
+    public void the_booking_still_exists_with_status(Integer int1) {
+        // same underlying check as above, worded for the opposite expectation: a rejected
+        // (unauthorized) delete should leave the booking untouched, not gone
+        assertGetBookingStatus(int1);
+    }
 }

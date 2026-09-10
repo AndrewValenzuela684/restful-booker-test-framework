@@ -1,15 +1,21 @@
 package StepDefinitions;
 
-import Pages.AddEmployeePage;
+import Pages.ContactPage;
+import Pages.HomePage;
 import Pages.LoginPage;
+import Pages.ReservationPage;
 
 public class PageInitializer {
 
     public static LoginPage login;
-    public static AddEmployeePage addEmployeePage;
+    public static HomePage homePage;
+    public static ReservationPage reservationPage;
+    public static ContactPage contactPage;
 
     public static void initializePageObjects(){
         login = new LoginPage();
-        addEmployeePage = new AddEmployeePage();
+        homePage = new HomePage();
+        reservationPage = new ReservationPage();
+        contactPage = new ContactPage();
     }
 }

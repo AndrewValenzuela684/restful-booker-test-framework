@@ -33,7 +33,11 @@ public class CommonMethods extends PageInitializer {
         boolean headless = ConfigReader.getPropertyValue("Headless").equals("true");
         switch (browserType) {
             case "Chrome":
-                System.setProperty("webdriver.chrome.driver", "C:\\WebDrivers\\chromedriver.exe");
+                // No webdriver.chrome.driver system property is set here on purpose -
+                // Selenium Manager (built into Selenium 4.6+) auto-detects the installed
+                // Chrome version and downloads/locates the matching driver itself. That
+                // makes this work unchanged on any machine (including CI runners), instead
+                // of only wherever a chromedriver.exe happens to sit at a hardcoded path.
                 ChromeOptions ops = new ChromeOptions();
                 ops.addArguments("--no-sandbox");
                 ops.addArguments("--remote-allow-origins=*");
@@ -79,6 +83,11 @@ public class CommonMethods extends PageInitializer {
 
 
     public static void closeBrowser() {
+        if (driver == null) {
+            // browser launch must have failed before this hook ran - nothing to close
+            Log.warning("Skipping browser close - driver was never initialized");
+            return;
+        }
         Log.info("This test case is about to get completed");
         Log.endTestCase("This test case is finished");
         driver.close();

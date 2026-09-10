@@ -23,8 +23,12 @@ public class Hooks extends CommonMethods {
             pic = takeScreenshot("passed/" + scenario.getName());
         }
 
-        //attach the screenshots in my report
-        scenario.attach(pic, "image/png", scenario.getName());
+        //attach the screenshots in my report (skip if the browser never launched,
+        //in which case takeScreenshot() already returned null - attaching null
+        //throws its own NullPointerException and just hides the real error above it)
+        if (pic != null) {
+            scenario.attach(pic, "image/png", scenario.getName());
+        }
         closeBrowser();
     }
 }

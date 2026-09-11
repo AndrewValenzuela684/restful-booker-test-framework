@@ -1,5 +1,7 @@
 # Restful Booker Test Framework
 
+[![Run Tests](https://github.com/AndrewValenzuela684/restful-booker-test-framework/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/AndrewValenzuela684/restful-booker-test-framework/actions/workflows/tests.yml)
+
 A test automation framework covering both the UI and API layers of a hotel-booking application, built with Cucumber (BDD), Selenium WebDriver, and RestAssured.
 
 - **UI suite** — runs against [automationintesting.online](https://automationintesting.online) ("Shady Meadows B&B"), a public restful-booker-platform demo site by Mark Winteringham.

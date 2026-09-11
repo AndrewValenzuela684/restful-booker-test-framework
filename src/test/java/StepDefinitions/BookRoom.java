@@ -50,7 +50,11 @@ public class BookRoom extends CommonMethods {
         // submitting triggers a real request before the "Booking Confirmed" panel swaps
         // in, so wait rather than assuming it's already there the instant this step starts
         // (same reasoning as the login form check in Login.java)
-        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(5));
+        // 15s rather than the original 5s - this hits a real, occasionally slow live site,
+        // and CI runners add their own network latency on top of that (a GitHub-hosted
+        // runner isn't on the same network path as a home connection), so a tighter
+        // timeout here produces false failures that aren't a real regression
+        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(15));
         boolean confirmationShown = wait.until(d ->
                 !d.findElements(By.xpath("//h2[normalize-space()='Booking Confirmed']")).isEmpty());
         Assert.assertTrue("Expected the 'Booking Confirmed' message to be showing, but it wasn't",

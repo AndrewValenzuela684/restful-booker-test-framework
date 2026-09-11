@@ -51,12 +51,16 @@ public class Login extends CommonMethods {
                 loginFormGone);
     }
 
-    @When("user enters invalid email and invalid password")
-    public void user_enters_invalid_email_and_invalid_password() {
-        // deliberately wrong values - no need to pull these from config since, unlike the
-        // valid admin credentials, they don't represent a real account
-        sendText(login.usernameTextBox, "wronguser");
-        sendText(login.passwordTextBox, "wrongpassword");
+    @When("user enters {string} and {string}")
+    public void user_enters_username_and_password(String username, String password) {
+        // {string}/{string} pulls each row straight from the Examples table in
+        // Login.feature - no hardcoded values here since the whole point of a Scenario
+        // Outline is running the same steps against multiple data sets. Every combination
+        // in that table was verified live against the real site before being added,
+        // confirming each one actually produces the "Invalid credentials" error rather
+        // than being assumed.
+        sendText(login.usernameTextBox, username);
+        sendText(login.passwordTextBox, password);
     }
 
     @Then("an invalid credentials error is shown")

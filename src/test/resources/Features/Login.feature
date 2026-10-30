@@ -1,6 +1,6 @@
 Feature: Login Functionalities
 
-  @smoke
+  @smoke @TC291
   Scenario: Valid Admin login
     When user enters valid email and valid password
     And click on login button

@@ -8,3 +8,6 @@ out/
 screenshots/
 logfile.log
 *.log
+
+# SpiraTeam API credentials -- never commit this file
+src/test/resources/Config/spira.properties

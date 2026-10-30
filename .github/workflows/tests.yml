@@ -31,6 +31,19 @@ jobs:
         if: steps.ui_tests.outcome == 'failure'
         run: mvn -B test -Dtest=FailedRunner
 
+      # NOTE: this step must run here, after the UI suite and before the API
+      # suite below. SmokeRunner and APIRunner both write to the same file,
+      # target/Cucumber.json -- APIRunner overwrites it, so this is the only
+      # point where it still holds the UI/login results.
+      - name: Report UI results to SpiraTeam
+        if: always()
+        run: python3 scripts/report_to_spira.py
+        env:
+          SPIRA_BASE_URL: ${{ secrets.SPIRA_BASE_URL }}
+          SPIRA_PROJECT_ID: ${{ secrets.SPIRA_PROJECT_ID }}
+          SPIRA_USERNAME: ${{ secrets.SPIRA_USERNAME }}
+          SPIRA_API_KEY: ${{ secrets.SPIRA_API_KEY }}
+
       - name: Run API suite
         run: mvn -B test -Dtest=APIRunner
 

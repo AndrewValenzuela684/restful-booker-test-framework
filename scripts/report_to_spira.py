@@ -33,7 +33,7 @@ import sys
 import urllib.request
 import urllib.error
 import urllib.parse
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(SCRIPT_DIR)
@@ -122,7 +122,9 @@ def summarize_scenarios(features):
 def record_test_run(base_url, project_id, username, api_key,
                      test_case_id, scenario_name, passed, duration_ns,
                      failures, example_count, dry_run):
-    start = datetime.utcnow()
+    """Returns True if the result was successfully recorded (or this was a
+    dry run), False if the actual API call failed."""
+    start = datetime.now(timezone.utc)
     end = start + timedelta(seconds=duration_ns / 1e9)
 
     if passed:

@@ -6,7 +6,7 @@ Feature: Login Functionalities
     And click on login button
     Then user is logged in successfully into the application
 
-  @smoke @negative
+  @smoke @negative @TC290
   Scenario Outline: Invalid Admin login shows an error
     When user enters "<username>" and "<password>"
     And click on login button

@@ -20,15 +20,30 @@ Config:
     SPIRA_BASE_URL / SPIRA_PROJECT_ID / SPIRA_USERNAME / SPIRA_API_KEY.
 
 Mapping:
-    Add a new entry to SCENARIO_TO_TESTCASE below every time you create a
-    new test case in SpiraTeam for a scenario in this project. The key is
-    (Feature name, Scenario/Scenario Outline name) exactly as written in
-    the .feature file; the value is the numeric SpiraTeam Test Case ID
-    (the number in [TC:xxx]).
+    No mapping table to maintain here. Tag a scenario in its .feature file
+    with the SpiraTeam Test Case ID it covers, e.g.:
+
+        @smoke @negative @TC290
+        Scenario Outline: Invalid Admin login shows an error
+
+    This script reads that tag straight out of the Cucumber JSON report and
+    reports to that test case automatically. A Scenario Outline's Examples
+    rows all carry the same tag, so they're aggregated into one overall
+    pass/fail for that one test case. A scenario with no @TC### tag is
+    simply skipped (not reported anywhere) -- tag it when you're ready to
+    track it in SpiraTeam.
+
+Release/Sprint:
+    CURRENT_RELEASE_ID below tags every reported Test Run against a
+    SpiraTeam Release/Sprint (the number in that Release's URL, e.g.
+    .../Release/154.aspx -> 154), so SpiraTeam's Test Coverage % for that
+    sprint updates automatically. Update this constant at the start of
+    each new sprint. Set it to None to stop tagging a release at all.
 """
 
 import json
 import os
+import re
 import sys
 import urllib.request
 import urllib.error
@@ -40,12 +55,11 @@ PROJECT_ROOT = os.path.dirname(SCRIPT_DIR)
 CONFIG_PATH = os.path.join(PROJECT_ROOT, "src", "test", "resources", "Config", "spira.properties")
 CUCUMBER_JSON_PATH = os.path.join(PROJECT_ROOT, "target", "Cucumber.json")
 
-# (Feature name, Scenario name) -> SpiraTeam Test Case ID.
-# A Scenario Outline's Examples rows all share one name here, so they get
-# aggregated into a single pass/fail result for that one test case.
-SCENARIO_TO_TESTCASE = {
-    ("Login Functionalities", "Invalid Admin login shows an error"): 290,
-}
+# Matches a Gherkin tag like @TC290 and captures the number.
+TEST_CASE_TAG_PATTERN = re.compile(r"^@TC(\d+)$", re.IGNORECASE)
+
+# Update this at the start of each new sprint (see "Release/Sprint" above).
+CURRENT_RELEASE_ID = 154  # Sprint 1
 
 
 def load_config():
@@ -84,11 +98,25 @@ def load_cucumber_results(path):
         return json.load(f)
 
 
+def extract_test_case_ids(element):
+    """Returns the list of SpiraTeam Test Case IDs tagged on this scenario
+    element, e.g. a tag @TC290 on it returns [290]. Usually zero or one,
+    but a scenario can carry more than one @TC### tag if it covers
+    multiple test cases."""
+    ids = []
+    for tag in element.get("tags", []):
+        match = TEST_CASE_TAG_PATTERN.match(tag.get("name", ""))
+        if match:
+            ids.append(int(match.group(1)))
+    return ids
+
+
 def summarize_scenarios(features):
     """
-    Groups Cucumber JSON scenario elements by (feature name, scenario name).
-    A Scenario Outline's Examples rows all share the same name, so this
-    aggregates them into one overall pass/fail per named scenario.
+    Groups Cucumber JSON scenario elements by the SpiraTeam Test Case ID
+    found in their @TC### tag. A Scenario Outline's Examples rows all
+    carry the same tag, so they're aggregated into one overall pass/fail
+    per test case. Scenarios with no @TC### tag are skipped entirely.
     """
     summaries = {}
     for feature in features:
@@ -96,26 +124,31 @@ def summarize_scenarios(features):
         for element in feature.get("elements", []):
             if element.get("type") != "scenario":
                 continue
+            test_case_ids = extract_test_case_ids(element)
+            if not test_case_ids:
+                continue
             scenario_name = element.get("name", "")
-            key = (feature_name, scenario_name)
-            summary = summaries.setdefault(key, {
-                "passed": True,
-                "duration_ns": 0,
-                "failures": [],
-                "example_count": 0,
-            })
-            summary["example_count"] += 1
-            for step in element.get("steps", []):
-                result = step.get("result", {})
-                summary["duration_ns"] += result.get("duration", 0) or 0
-                status = result.get("status")
-                if status != "passed":
-                    summary["passed"] = False
-                    err = result.get("error_message", "")
-                    first_line = err.splitlines()[0] if err else status
-                    summary["failures"].append(
-                        f"{step.get('keyword', '').strip()} {step.get('name', '')} -> {first_line}"
-                    )
+            for test_case_id in test_case_ids:
+                summary = summaries.setdefault(test_case_id, {
+                    "feature_name": feature_name,
+                    "scenario_name": scenario_name,
+                    "passed": True,
+                    "duration_ns": 0,
+                    "failures": [],
+                    "example_count": 0,
+                })
+                summary["example_count"] += 1
+                for step in element.get("steps", []):
+                    result = step.get("result", {})
+                    summary["duration_ns"] += result.get("duration", 0) or 0
+                    status = result.get("status")
+                    if status != "passed":
+                        summary["passed"] = False
+                        err = result.get("error_message", "")
+                        first_line = err.splitlines()[0] if err else status
+                        summary["failures"].append(
+                            f"{step.get('keyword', '').strip()} {step.get('name', '')} -> {first_line}"
+                        )
     return summaries
 
 
@@ -148,11 +181,14 @@ def record_test_run(base_url, project_id, username, api_key,
         "ProjectId": project_id,
     }
 
+    if CURRENT_RELEASE_ID is not None:
+        body["ReleaseId"] = CURRENT_RELEASE_ID
+
     if dry_run:
         print(f"[DRY RUN] [TC:{test_case_id}] {scenario_name} -> "
               f"{'PASSED' if passed else 'FAILED'}")
         print(json.dumps(body, indent=2))
-        return
+        return True
 
     url = (
         f"{base_url}/Services/v7_0/RestService.svc/projects/{project_id}/test-runs/record"
@@ -169,11 +205,14 @@ def record_test_run(base_url, project_id, username, api_key,
         with urllib.request.urlopen(req) as resp:
             print(f"[TC:{test_case_id}] {scenario_name} -> {'PASSED' if passed else 'FAILED'} "
                   f"(reported, HTTP {resp.status})")
+            return True
     except urllib.error.HTTPError as e:
         print(f"[TC:{test_case_id}] {scenario_name} -> FAILED TO REPORT "
               f"(HTTP {e.code}): {e.read().decode('utf-8', errors='replace')}")
+        return False
     except urllib.error.URLError as e:
         print(f"[TC:{test_case_id}] {scenario_name} -> FAILED TO REPORT (connection error): {e}")
+        return False
 
 
 def main():
@@ -183,23 +222,26 @@ def main():
     report = load_cucumber_results(CUCUMBER_JSON_PATH)
     summaries = summarize_scenarios(report)
 
-    reported = 0
-    for (feature_name, scenario_name), test_case_id in SCENARIO_TO_TESTCASE.items():
-        summary = summaries.get((feature_name, scenario_name))
-        if summary is None:
-            print(f"[TC:{test_case_id}] No results found for '{scenario_name}' in "
-                  f"'{feature_name}' -- did it run in this test pass? "
-                  f"(check the exact name against Login.feature)")
-            continue
-        record_test_run(
+    if not summaries:
+        print("No @TC###-tagged scenarios found in this Cucumber report -- nothing to report. "
+              "Tag a scenario (e.g. @TC290) in its .feature file to have it reported.")
+        sys.exit(1)
+
+    any_api_failure = False
+    for test_case_id, summary in summaries.items():
+        ok = record_test_run(
             base_url, project_id, username, api_key,
-            test_case_id, scenario_name,
+            test_case_id, summary["scenario_name"],
             summary["passed"], summary["duration_ns"], summary["failures"],
             summary["example_count"], dry_run,
         )
-        reported += 1
+        if not ok:
+            any_api_failure = True
 
-    if reported == 0:
+    # Exit non-zero if the API itself rejected a report -- a 200 from
+    # Spira's API is not the same thing as the underlying test passing,
+    # so don't let an API-level failure hide behind a green CI step.
+    if any_api_failure:
         sys.exit(1)
 
 

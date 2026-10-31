@@ -1,6 +1,6 @@
 Feature: Book a Room
 
-  @smoke
+  @smoke @TC292
   Scenario: Successfully book a room
     Given user is on the Shady Meadows homepage
     When user selects a room to book
